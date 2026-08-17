@@ -1,12 +1,18 @@
 import streamlit as st
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.metrics import (
+    accuracy_score, roc_auc_score, precision_score, 
+    recall_score, f1_score, matthews_corrcoef, confusion_matrix
+)
 
 st.title("📊 Machine Learning Model Evaluator")
 
@@ -16,59 +22,69 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.write(df.head())
 
-    # HeartDisease default target set karein agar present ho
-    default_idx = list(df.columns).index('HeartDisease') if 'HeartDisease' in df.columns else 0
+    # Churn / HeartDisease target detect karein
+    default_idx = 0
+    for target_candidate in ['Churn', 'HeartDisease']:
+        if target_candidate in df.columns:
+            default_idx = list(df.columns).index(target_candidate)
+            break
+
     target_column = st.selectbox("Select Target Column", df.columns, index=default_idx)
 
     if target_column:
         X = df.drop(columns=[target_column])
         y = df[target_column]
 
-        # Categorical features & missing values handle karein
+        # Features processing
         X = pd.get_dummies(X, drop_first=True)
         X = X.fillna(X.mean(numeric_only=True))
 
-        # Target variable ko classification-compatible banayein
         le = LabelEncoder()
         y_encoded = le.fit_transform(y.astype(str))
 
+        # Train/Test Split
+        X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
 
-        model_name = st.selectbox("Select Model", ["Logistic Regression", "Decision Tree", "kNN", "Naive Bayes", "Random Forest"])
+        model_name = st.selectbox(
+            "Select Model", 
+            ["Logistic Regression", "Decision Tree", "kNN", "Naive Bayes", "Random Forest", "Gradient Boosting"]
+        )
 
-        if model_name == "Logistic Regression":
-            model = LogisticRegression()
-        elif model_name == "Decision Tree":
-            model = DecisionTreeClassifier(random_state=42)
-        elif model_name == "kNN":
-            model = KNeighborsClassifier()
-        elif model_name == "Naive Bayes":
-            model = GaussianNB()
-        else:
-            model = RandomForestClassifier(random_state=42)
+        models = {
+            "Logistic Regression": LogisticRegression(),
+            "Decision Tree": DecisionTreeClassifier(random_state=42),
+            "kNN": KNeighborsClassifier(),
+            "Naive Bayes": GaussianNB(),
+            "Random Forest": RandomForestClassifier(random_state=42),
+            "Gradient Boosting": GradientBoostingClassifier(random_state=42)
+        }
 
-        # Encoded target model par fit karein
-        model.fit(X_scaled, y_encoded)
-        y_pred = model.predict(X_scaled)
+        model = models[model_name]
+        model.fit(X_train_scaled, y_train)
+        y_pred = model.predict(X_test_scaled)
 
         st.subheader(f"📈 Metrics for {model_name}")
-        c1, c2 = st.columns(2)
-        
-        acc = accuracy_score(y_encoded, y_pred)
-        c1.metric("Accuracy", f"{acc:.4f}")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.4f}")
+        c2.metric("Precision", f"{precision_score(y_test, y_pred, average='weighted'):.4f}")
+        c3.metric("Recall", f"{recall_score(y_test, y_pred, average='weighted'):.4f}")
+
+        c4, c5, c6 = st.columns(3)
+        c4.metric("F1 Score", f"{f1_score(y_test, y_pred, average='weighted'):.4f}")
+        c5.metric("MCC", f"{matthews_corrcoef(y_test, y_pred):.4f}")
 
         if hasattr(model, "predict_proba"):
             try:
-                y_proba = model.predict_proba(X_scaled)
-                n_classes = len(set(y_encoded))
-                if n_classes > 2:
-                    auc_val = roc_auc_score(y_encoded, y_proba, multi_class='ovr')
-                elif n_classes == 2:
-                    auc_val = roc_auc_score(y_encoded, y_proba[:, 1] if y_proba.ndim > 1 else y_proba)
-                else:
-                    auc_val = 0.0
-                auc_text = f"{auc_val:.4f}"
+                y_proba = model.predict_proba(X_test_scaled)[:, 1]
+                c6.metric("AUC", f"{roc_auc_score(y_test, y_proba):.4f}")
             except Exception:
-                auc_text = "N/A"
-            c2.metric("AUC", auc_text)
+                c6.metric("AUC", "N/A")
+
+        st.subheader("🧩 Confusion Matrix")
+        fig, ax = plt.subplots()
+        sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues', ax=ax)
+        st.pyplot(fig)
