@@ -1,0 +1,1 @@
+streamlit, scikit-learn, pandas, numpy, matplotlib, seaborn
