@@ -30,9 +30,9 @@ X = pd.get_dummies(X, drop_first=True)
 
 X_scaled = scaler.fit_transform(X)
     
-    model_name = st.selectbox("Select Model", ["Logistic Regression", "Decision Tree", "kNN", "Naive Bayes", "Random Forest"])
+model_name = st.selectbox("Select Model", ["Logistic Regression", "Decision Tree", "kNN", "Naive Bayes", "Random Forest"])
     
-    if model_name == "Logistic Regression":
+if model_name == "Logistic Regression":
         model = LogisticRegression(); X_eval = X_scaled
     elif model_name == "Decision Tree":
         model = DecisionTreeClassifier(random_state=42); X_eval = X
