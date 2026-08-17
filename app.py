@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -16,7 +16,9 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.write(df.head())
 
-    target_column = st.selectbox("Select Target Column", df.columns)
+    # HeartDisease default target set karein agar present ho
+    default_idx = list(df.columns).index('HeartDisease') if 'HeartDisease' in df.columns else 0
+    target_column = st.selectbox("Select Target Column", df.columns, index=default_idx)
 
     if target_column:
         X = df.drop(columns=[target_column])
@@ -25,6 +27,10 @@ if uploaded_file is not None:
         # Categorical features & missing values handle karein
         X = pd.get_dummies(X, drop_first=True)
         X = X.fillna(X.mean(numeric_only=True))
+
+        # Target variable ko classification-compatible banayein
+        le = LabelEncoder()
+        y_encoded = le.fit_transform(y.astype(str))
 
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
@@ -42,23 +48,26 @@ if uploaded_file is not None:
         else:
             model = RandomForestClassifier(random_state=42)
 
-        # Sabhi models ke liye processed data use karein
-        model.fit(X_scaled, y)
+        # Encoded target model par fit karein
+        model.fit(X_scaled, y_encoded)
         y_pred = model.predict(X_scaled)
 
         st.subheader(f"📈 Metrics for {model_name}")
         c1, c2 = st.columns(2)
         
-        acc = accuracy_score(y, y_pred)
+        acc = accuracy_score(y_encoded, y_pred)
         c1.metric("Accuracy", f"{acc:.4f}")
 
         if hasattr(model, "predict_proba"):
             try:
                 y_proba = model.predict_proba(X_scaled)
-                if len(set(y)) > 2:
-                    auc_val = roc_auc_score(y, y_proba, multi_class='ovr')
+                n_classes = len(set(y_encoded))
+                if n_classes > 2:
+                    auc_val = roc_auc_score(y_encoded, y_proba, multi_class='ovr')
+                elif n_classes == 2:
+                    auc_val = roc_auc_score(y_encoded, y_proba[:, 1] if y_proba.ndim > 1 else y_proba)
                 else:
-                    auc_val = roc_auc_score(y, y_proba[:, 1] if y_proba.ndim > 1 else y_proba)
+                    auc_val = 0.0
                 auc_text = f"{auc_val:.4f}"
             except Exception:
                 auc_text = "N/A"
