@@ -48,7 +48,16 @@ y_proba = model.predict_proba(X_eval)[:, 1] if hasattr(model, "predict_proba") e
 st.subheader(f"📈 Metrics for {model_name}")
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 c1.metric("Accuracy", f"{accuracy_score(y, y_pred):.4f}")
-c2.metric("AUC", f"{roc_auc_score(y, y_proba):.4f}" if y_proba is not None else "N/A")
+try:
+    if len(set(y)) > 2:
+        auc_val = roc_auc_score(y, y_proba, multi_class='ovr')
+    else:
+        auc_val = roc_auc_score(y, y_proba[:, 1] if y_proba.ndim > 1 else y_proba)
+    auc_text = f"{auc_val:.4f}"
+except Exception:
+    auc_text = "N/A"
+
+c2.metric("AUC", auc_text)
 c3.metric("Precision", f"{precision_score(y, y_pred, zero_division=0):.4f}")
 c4.metric("Recall", f"{recall_score(y, y_pred, zero_division=0):.4f}")
 c5.metric("F1", f"{f1_score(y, y_pred, zero_division=0):.4f}")
