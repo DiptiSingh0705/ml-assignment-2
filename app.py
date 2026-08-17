@@ -22,11 +22,13 @@ if uploaded_file is not None:
     st.dataframe(df.head())
     
     target_col = st.selectbox("Select Target Column", df.columns, index=len(df.columns)-1)
-    X = df.drop(columns=[target_col])
-    y = df[target_col]
-    
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    X = df.drop(columns=[target_column])
+y = df[target_column]
+
+# Ye nayi line add karein (Text ko numbers mein convert karne ke liye)
+X = pd.get_dummies(X, drop_first=True)
+
+X_scaled = scaler.fit_transform(X)
     
     model_name = st.selectbox("Select Model", ["Logistic Regression", "Decision Tree", "kNN", "Naive Bayes", "Random Forest"])
     
