@@ -22,25 +22,29 @@ if uploaded_file is not None:
         X = df.drop(columns=[target_column])
         y = df[target_column]
 
+        # Categorical features & missing values handle karein
         X = pd.get_dummies(X, drop_first=True)
+        X = X.fillna(X.mean(numeric_only=True))
+
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
         model_name = st.selectbox("Select Model", ["Logistic Regression", "Decision Tree", "kNN", "Naive Bayes", "Random Forest"])
 
         if model_name == "Logistic Regression":
-            model = LogisticRegression(); X_eval = X_scaled
+            model = LogisticRegression()
         elif model_name == "Decision Tree":
-            model = DecisionTreeClassifier(random_state=42); X_eval = X
+            model = DecisionTreeClassifier(random_state=42)
         elif model_name == "kNN":
-            model = KNeighborsClassifier(); X_eval = X_scaled
+            model = KNeighborsClassifier()
         elif model_name == "Naive Bayes":
-            model = GaussianNB(); X_eval = X
+            model = GaussianNB()
         else:
-            model = RandomForestClassifier(random_state=42); X_eval = X
+            model = RandomForestClassifier(random_state=42)
 
-        model.fit(X_eval, y)
-        y_pred = model.predict(X_eval)
+        # Sabhi models ke liye processed data use karein
+        model.fit(X_scaled, y)
+        y_pred = model.predict(X_scaled)
 
         st.subheader(f"📈 Metrics for {model_name}")
         c1, c2 = st.columns(2)
@@ -49,8 +53,8 @@ if uploaded_file is not None:
         c1.metric("Accuracy", f"{acc:.4f}")
 
         if hasattr(model, "predict_proba"):
-            y_proba = model.predict_proba(X_eval)
             try:
+                y_proba = model.predict_proba(X_scaled)
                 if len(set(y)) > 2:
                     auc_val = roc_auc_score(y, y_proba, multi_class='ovr')
                 else:
