@@ -15,13 +15,12 @@ from sklearn.ensemble import RandomForestClassifier
 st.title("📊 Machine Learning Model Evaluator")
 
 uploaded_file = st.file_uploader("Upload Test Data (CSV)", type=["csv"])
-
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.subheader("📌 Dataset Preview")
-   target_column = st.selectbox("Select Target Column", df.columns)
+    st.write(df.head())
 
-if target_column:
+    target_column = st.selectbox("Select Target Column", df.columns)
+    
     X = df.drop(columns=[target_column])
     y = df[target_column]
 
